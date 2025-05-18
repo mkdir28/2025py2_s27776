@@ -90,6 +90,19 @@ class NCBIRetriever:
         self.max_len = max_len
         self.min_len = min_len
 
+    def csv_report(self, records, filename):
+        with open(filename, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['accession number', 'sequence length', 'sequence description'])
+
+            for record in records:
+                writer.writerow([
+                    record.id,
+                    len(record.seq),
+                    record.description
+                ])
+        print(f"CSV report saved to {filename}")
+
 
 def main():
     # Get user credentials
