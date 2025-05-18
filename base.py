@@ -7,6 +7,8 @@ Basic script to connect to NCBI and retrieve genetic sequence records for a give
 from Bio import Entrez, SeqIO
 import time
 import os
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 import pandas as pd
 import matplotlib.pyplot as plt
 
