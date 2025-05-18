@@ -8,7 +8,6 @@ from Bio import Entrez, SeqIO
 import time
 import os
 import pandas as pd
-import csv
 import matplotlib.pyplot as plt
 
 
@@ -17,8 +16,9 @@ class NCBIRetriever:
         """Initialize with NCBI credentials."""
         self.email = email
         self.api_key = api_key
-        self.max_len = None
         self.min_len = None
+        self.max_len = None
+        self.organism_name = None
 
         # Set up Entrez
         Entrez.email = email
@@ -87,42 +87,42 @@ class NCBIRetriever:
             print(f"Error fetching records: {e}")
             return ""
 
-    def sequence_length_filter(self, max_len, min_len):
+    def sequence_length_filter(self, min_len=None, max_len=None):
         self.max_len = max_len
         self.min_len = min_len
 
-    def csv_report(self, records, filename):
-        """Generate CSV report from records."""
+    def generate_csv(self, records, filename):
         if not records:
-            print("No records to generate CSV")
+            print("No records to generate CSV report")
             return None
 
+        # Create DataFrame
         data = {
             'Accession': [rec.id for rec in records],
             'Length': [len(rec.seq) for rec in records],
             'Description': [rec.description for rec in records]
         }
-        df = pd.DataFrame(data)
+
+        df = pd.DataFrame(data).sort_values('Length', ascending=False)
         df.to_csv(filename, index=False)
         print(f"CSV report saved to {filename}")
         return df
 
-    def data_visualisation(self, df, filename):
-        """Generate and save a sequence length plot."""
+    def visualize_data(self, df, filename):
         if df is None or df.empty:
-            print("No data to plot")
+            print("No data to visualize")
             return
 
-        plt.figure(figsize=(12, 6))
-        plt.plot(df['Accession'], df['Length'], 'o-')
-        plt.xticks(rotation=90)
-        plt.xlabel('GenBank Accession Number')
+        plt.figure(figsize=(10, 6))
+        plt.plot(df['Accession'], df['Length'], marker='o')
+        plt.xticks(rotation=90, fontsize=8)
         plt.ylabel('Sequence Length')
+        plt.xlabel('GenBank Accession Number')
         plt.title(f'Sequence Lengths for {self.organism_name}')
         plt.tight_layout()
         plt.savefig(filename)
         plt.close()
-        print(f"Plot saved to {filename}")
+        print(f"Chart saved to {filename}")
 
 def main():
     # Get user credentials
@@ -132,84 +132,41 @@ def main():
     # Create retriever object
     retriever = NCBIRetriever(email, api_key)
 
-        # Get sequence length filters
-    min_len = input("Enter minimum sequence length (leave empty for no minimum): ")
-    max_len = input("Enter maximum sequence length (leave empty for no maximum): ")
-    if min_len:
-        retriever.sequence_length_filter(int(max_len), int(min_len) if max_len else 1000000)
+    # Get sequence length filters
+    min_len_input = input("Enter minimum sequence length (press Enter for none): ")
+    max_len_input = input("Enter maximum sequence length (press Enter for none): ")
 
-        # Get taxid from user
+    min_len = int(min_len_input) if min_len_input else None
+    max_len = int(max_len_input) if max_len_input else None
+    retriever.sequence_length_filter(min_len, max_len)
+
+    # Get taxid from user
     taxid = input("Enter taxonomic ID (taxid) of the organism: ")
 
-        # Search for records
+    # Search for records
     count = retriever.search_taxid(taxid)
 
     if not count:
         print("No records found. Exiting.")
         return
 
-        # Fetch records
+    # Fetch records
     print("\nFetching records...")
-    records = retriever.fetch_records(start=0, max_records=min(100, count))
+    records = retriever.fetch_records()
+    if not records:
+        print("No records to process after filtering. Exiting.")
+        return
 
-        # Generate outputs
+    # Generate outputs
     base_filename = f"taxid_{taxid}"
-    df = retriever.csv_report(records, f"{base_filename}_report.csv")
-    retriever.data_visualisation(df, f"{base_filename}_plot.png")
+    df = retriever.generate_csv(records, f"{base_filename}_report.csv")
+    retriever.visualize_data(df, f"{base_filename}_plot.png")
 
-        # Save sample records
-    output_file = f"{base_filename}_sample.gb"
-    with open(output_file, "w") as f:
-        SeqIO.write(records, f, "gb")
-    print(f"Saved sample records to {output_file}")
+    # Save GenBank records
+    with open(f"{base_filename}_records.gb", "w") as f:
+        SeqIO.write(records, f, "genbank")
+    print(f"GenBank records saved to {base_filename}_records.gb")
 
 if __name__ == "__main__":
     main()
-
-#
-# def main():
-#     # Get user credentials
-#     email = input("Enter your email address for NCBI: ")
-#     api_key = input("Enter your NCBI API key: ")
-#
-#     # Create retriever object
-#     retriever = NCBIRetriever(email, api_key)
-#
-#     max_len = input("Enter maximum sequence length (leave empty for no maximum): ")
-#     min_len = input("Enter minimum sequence length (leave empty for no minimum): ")
-#     if min_len:
-#         retriever.sequence_length_filter(int(max_len), int(min_len) if max_len else 1000000)
-#
-#     # Get taxid from user
-#     taxid = input("Enter taxonomic ID (taxid) of the organism: ")
-#
-#     # Search for records
-#     count = retriever.search_taxid(taxid)
-#
-#     if not count:
-#         print("No records found. Exiting.")
-#         return
-#
-#     # Fetch first few records as a sample
-#     print("\nFetching sample records...")
-#     sample_records = retriever.fetch_records(start=0, max_records=5)
-#
-#     csv_file = f"taxid_{taxid}_filtered.csv"
-#     img_file = f"taxid_{taxid}_plot.png"
-#     df = csv_report(sample_records, csv_file)
-#     make_plot(df, img_file)
-#
-#     print(f"CSV saved to {csv_file}")
-#     print(f"Plot saved to {img_file}")
-#     # Save to file
-#     output_file = f"taxid_{taxid}_sample.gb"
-#     with open(output_file, "w") as f:
-#         f.write(sample_records)
-#
-#     print(f"Saved sample records to {output_file}")
-#     print("\nNote: This is just a basic retriever. You need to extend its functionality!")
-#
-#
-# if __name__ == "__main__":
-#     main()
 
