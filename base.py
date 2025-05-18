@@ -7,6 +7,8 @@ Basic script to connect to NCBI and retrieve genetic sequence records for a give
 from Bio import Entrez
 import time
 import os
+import csv
+import matplotlib.pyplot as plt
 
 
 class NCBIRetriever:
@@ -14,6 +16,8 @@ class NCBIRetriever:
         """Initialize with NCBI credentials."""
         self.email = email
         self.api_key = api_key
+        self.max_len = None
+        self.min_len = None
 
         # Set up Entrez
         Entrez.email = email
@@ -81,6 +85,10 @@ class NCBIRetriever:
         except Exception as e:
             print(f"Error fetching records: {e}")
             return ""
+
+    def sequence_length_filter(self, max_len, min_len):
+        self.max_len = max_len
+        self.min_len = min_len
 
 
 def main():
