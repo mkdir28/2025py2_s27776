@@ -4,9 +4,10 @@ NCBI GenBank Data Retriever
 Basic script to connect to NCBI and retrieve genetic sequence records for a given taxonomic ID.
 """
 
-from Bio import Entrez
+from Bio import Entrez, SeqIO
 import time
 import os
+import pandas as pd
 import csv
 import matplotlib.pyplot as plt
 
@@ -91,33 +92,33 @@ class NCBIRetriever:
         self.min_len = min_len
 
     def csv_report(self, records, filename):
-        with open(filename, 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['accession number', 'sequence length', 'sequence description'])
-
-            for record in records:
-                writer.writerow([
-                    record.id,
-                    len(record.seq),
-                    record.description
-                ])
-        print(f"CSV report saved to {filename}")
-
-    def data_visualisation(self, records, filename):
+        """Generate CSV report from records."""
         if not records:
-            print("No records to plot")
+            print("No records to generate CSV")
+            return None
+
+        data = {
+            'Accession': [rec.id for rec in records],
+            'Length': [len(rec.seq) for rec in records],
+            'Description': [rec.description for rec in records]
+        }
+        df = pd.DataFrame(data)
+        df.to_csv(filename, index=False)
+        print(f"CSV report saved to {filename}")
+        return df
+
+    def data_visualisation(self, df, filename):
+        """Generate and save a sequence length plot."""
+        if df is None or df.empty:
+            print("No data to plot")
             return
 
-        sorted_records = sorted(records, key=lambda x: len(x.seq), reverse=True)
-        accessions = [rec.id for rec in sorted_records]
-        lengths = [len(rec.seq) for rec in sorted_records]
-
         plt.figure(figsize=(12, 6))
-        plt.plot(accessions, lengths, 'o-')
+        plt.plot(df['Accession'], df['Length'], 'o-')
         plt.xticks(rotation=90)
-        plt.xlabel('GenBank accession number')
-        plt.ylabel('sequence length')
-        plt.title(f'sequence lengths for {self.organism_name}')
+        plt.xlabel('GenBank Accession Number')
+        plt.ylabel('Sequence Length')
+        plt.title(f'Sequence Lengths for {self.organism_name}')
         plt.tight_layout()
         plt.savefig(filename)
         plt.close()
@@ -131,29 +132,84 @@ def main():
     # Create retriever object
     retriever = NCBIRetriever(email, api_key)
 
-    # Get taxid from user
+        # Get sequence length filters
+    min_len = input("Enter minimum sequence length (leave empty for no minimum): ")
+    max_len = input("Enter maximum sequence length (leave empty for no maximum): ")
+    if min_len:
+        retriever.sequence_length_filter(int(max_len), int(min_len) if max_len else 1000000)
+
+        # Get taxid from user
     taxid = input("Enter taxonomic ID (taxid) of the organism: ")
 
-    # Search for records
+        # Search for records
     count = retriever.search_taxid(taxid)
 
     if not count:
         print("No records found. Exiting.")
         return
 
-    # Fetch first few records as a sample
-    print("\nFetching sample records...")
-    sample_records = retriever.fetch_records(start=0, max_records=5)
+        # Fetch records
+    print("\nFetching records...")
+    records = retriever.fetch_records(start=0, max_records=min(100, count))
 
-    # Save to file
-    output_file = f"taxid_{taxid}_sample.gb"
+        # Generate outputs
+    base_filename = f"taxid_{taxid}"
+    df = retriever.csv_report(records, f"{base_filename}_report.csv")
+    retriever.data_visualisation(df, f"{base_filename}_plot.png")
+
+        # Save sample records
+    output_file = f"{base_filename}_sample.gb"
     with open(output_file, "w") as f:
-        f.write(sample_records)
-
+        SeqIO.write(records, f, "gb")
     print(f"Saved sample records to {output_file}")
-    print("\nNote: This is just a basic retriever. You need to extend its functionality!")
-
 
 if __name__ == "__main__":
     main()
+
+#
+# def main():
+#     # Get user credentials
+#     email = input("Enter your email address for NCBI: ")
+#     api_key = input("Enter your NCBI API key: ")
+#
+#     # Create retriever object
+#     retriever = NCBIRetriever(email, api_key)
+#
+#     max_len = input("Enter maximum sequence length (leave empty for no maximum): ")
+#     min_len = input("Enter minimum sequence length (leave empty for no minimum): ")
+#     if min_len:
+#         retriever.sequence_length_filter(int(max_len), int(min_len) if max_len else 1000000)
+#
+#     # Get taxid from user
+#     taxid = input("Enter taxonomic ID (taxid) of the organism: ")
+#
+#     # Search for records
+#     count = retriever.search_taxid(taxid)
+#
+#     if not count:
+#         print("No records found. Exiting.")
+#         return
+#
+#     # Fetch first few records as a sample
+#     print("\nFetching sample records...")
+#     sample_records = retriever.fetch_records(start=0, max_records=5)
+#
+#     csv_file = f"taxid_{taxid}_filtered.csv"
+#     img_file = f"taxid_{taxid}_plot.png"
+#     df = csv_report(sample_records, csv_file)
+#     make_plot(df, img_file)
+#
+#     print(f"CSV saved to {csv_file}")
+#     print(f"Plot saved to {img_file}")
+#     # Save to file
+#     output_file = f"taxid_{taxid}_sample.gb"
+#     with open(output_file, "w") as f:
+#         f.write(sample_records)
+#
+#     print(f"Saved sample records to {output_file}")
+#     print("\nNote: This is just a basic retriever. You need to extend its functionality!")
+#
+#
+# if __name__ == "__main__":
+#     main()
 
