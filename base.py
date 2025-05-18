@@ -103,6 +103,25 @@ class NCBIRetriever:
                 ])
         print(f"CSV report saved to {filename}")
 
+    def data_visualisation(self, records, filename):
+        if not records:
+            print("No records to plot")
+            return
+
+        sorted_records = sorted(records, key=lambda x: len(x.seq), reverse=True)
+        accessions = [rec.id for rec in sorted_records]
+        lengths = [len(rec.seq) for rec in sorted_records]
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(accessions, lengths, 'o-')
+        plt.xticks(rotation=90)
+        plt.xlabel('GenBank accession number')
+        plt.ylabel('sequence length')
+        plt.title(f'sequence lengths for {self.organism_name}')
+        plt.tight_layout()
+        plt.savefig(filename)
+        plt.close()
+        print(f"Plot saved to {filename}")
 
 def main():
     # Get user credentials
